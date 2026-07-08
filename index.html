@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lotify - Налаштування пошуку</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f151f;
+            --bg-panel: #1a2233;
+            --text-main: #ffffff;
+            --text-dim: #8b95a5;
+            --accent: #fcd535;
+            --border: #2b3648;
+            --success-bg: #1c2a2b;
+            --success-icon: #27ae60;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* --- ВЕРХНЯ ПАНЕЛЬ --- */
+        .top-status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: var(--text-dim);
+            background-color: var(--bg-panel);
+        }
+
+        /* --- КОНТЕЙНЕРИ ЕКРАНІВ --- */
+        .view {
+            display: none;
+            padding-bottom: 80px;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* --- ГОЛОВНИЙ ЕКРАН --- */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 50vh;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .empty-state h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        .queries-container {
+            display: none;
+            padding: 15px 20px;
+        }
+
+        .queries-header {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        /* --- КАРТКА ЗАПИТУ --- */
+        .query-card {
+            background-color: var(--bg-panel);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .query-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .query-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .query-url {
+            font-size: 12px;
+            color: var(--text-dim);
+            word-break: break-all;
+            margin-bottom: 10px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .query-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .action-icon {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: var(--text-dim);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .action-icon:hover {
+            stroke: var(--accent);
+        }
+
+        /* ТЕГИ (БЕЙДЖІ) */
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .tag {
+            background-color: #2a3546;
+            color: #d1d8e0;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        /* --- ФОРМА --- */
+        .form-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            margin-right: 15px;
+        }
+
+        .form-header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: normal;
+        }
+
+        .form-container {
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .hint-box {
+            background-color: rgba(43, 54, 72, 0.5);
+            border-left: 3px solid var(--accent);
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        /* --- НИЖНЯ КНОПКА --- */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--bg-panel);
+            padding: 15px 20px;
+            box-sizing: border-box;
+            border-top: 1px solid var(--border);
+            z-index: 20;
+        }
+
+        .btn-main {
+            width: 100%;
+            background-color: var(--accent);
+            color: #000;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --- СПОВІЩЕННЯ (TOAST) --- */
+        .toast {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--success-bg);
+            border: 1px solid var(--success-icon);
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-sizing: border-box;
+            z-index: 1000;
+            transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .toast.show {
+            top: 20px;
+        }
+
+        .success-text {
+            color: #d1d8e0;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .toast-circle-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 2;
+        }
+
+        .toast-circle-progress {
+            fill: none;
+            stroke: var(--success-icon);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-dasharray: 63;
+            stroke-dashoffset: 0;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .toast-cross {
+            stroke: #ffffff;
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+
+        .animate-progress {
+            animation: countdown 4s linear forwards;
+        }
+
+        @keyframes countdown {
+            from {
+                stroke-dashoffset: 0;
+            }
+
+            to {
+                stroke-dashoffset: 63;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toast" class="toast">
+        <div class="success-text" id="toast-msg">Ваш запит успішно створено. Ви отримаєте сповіщення, щойно з'явиться
+            нове оголошення.</div>
+        <div class="toast-close" onclick="closeToast()">
+            <svg width="24" height="24" viewBox="0 0 24 24">
+                <circle class="toast-circle-bg" cx="12" cy="12" r="10"></circle>
+                <circle class="toast-circle-progress" cx="12" cy="12" r="10"></circle>
+                <path class="toast-cross" d="M8 8l8 8m0-8l-8 8"></path>
+            </svg>
+        </div>
+    </div>
+
+    <div id="view-dashboard" class="view active">
+        <div class="top-status-bar">
+            <span>💰 Trial</span>
+            <span>Українська 🇺🇦</span>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+            <h2>Немає активних моніторингів</h2>
+            <p>Налаштуйте пошук на сайті або в додатку OLX, скопіюйте посилання та додайте його сюди.</p>
+        </div>
+
+        <div id="queries-container" class="queries-container">
+            <div class="queries-header">Список ваших запитів</div>
+            <div id="queries-list"></div>
+        </div>
+
+        <div class="bottom-bar">
+            <button class="btn-main" onclick="openForm()">+ Додати посилання OLX</button>
+        </div>
+    </div>
+
+    <div id="view-form" class="view">
+        <div class="form-header">
+            <button class="back-btn" onclick="closeForm()">←</button>
+            <h2 id="form-title">Новий моніторинг</h2>
+        </div>
+
+        <div class="form-container">
+            <div class="hint-box">
+                <b>Як це працює:</b><br>
+                1. Зайдіть на OLX та оберіть потрібні фільтри.<br>
+                2. Скопіюйте посилання з адресного рядка.<br>
+                3. Вставте його сюди.
+            </div>
+
+            <div class="input-group">
+                <label>Посилання на пошук (URL)</label>
+                <textarea id="olx_url" placeholder="https://www.olx.ua/uk/..." oninput="autoExtractData()"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Назва запиту (для вас)</label>
+                <input type="text" id="query_name" placeholder="Наприклад: Оренда кімнати Київ">
+            </div>
+
+            <div id="preview-tags" class="tags-container" style="margin-bottom: 20px;"></div>
+        </div>
+
+        <div class="bottom-bar">
+            <button class="btn-main" onclick="saveData()">Зберегти моніторинг</button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        const $ = id => document.getElementById(id);
+
+        let savedQueries = [];
+        let editingIndex = -1;
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            $(viewId).classList.add('active');
+        }
+
+        function openForm(index = -1) {
+            editingIndex = index;
+            $('preview-tags').innerHTML = '';
+
+            if (index === -1) {
+                $('form-title').innerText = "Новий моніторинг";
+                $('olx_url').value = '';
+                $('query_name').value = '';
+            } else {
+                $('form-title').innerText = "Редагування";
+                let item = savedQueries[index];
+                $('olx_url').value = item.url;
+                $('query_name').value = item.name;
+                renderPreviewTags(item.parsedData);
+            }
+            showView('view-form');
+        }
+
+        function closeForm() { showView('view-dashboard'); }
+
+        // --- РОЗУМНИЙ ПАРСЕР ПОСИЛАНЬ OLX ---
+        function parseOlxUrl(urlString) {
+            let data = { tags: [], price: null };
+            try {
+                let url = new URL(urlString);
+
+                // 1. Витягуємо ключове слово з шляху
+                let pathSegments = url.pathname.split('/').filter(p => p.length > 0 && p !== 'uk');
+                let keywordSegment = pathSegments.find(p => p.startsWith('q-'));
+                if (keywordSegment) {
+                    let keyword = decodeURIComponent(keywordSegment.replace('q-', '').replace(/-/g, ' '));
+                    data.tags.push("Пошук: " + keyword);
+                }
+
+                // 2. Витягуємо шлях (місто/категорію)
+                let categorySegments = pathSegments.filter(p => !p.startsWith('q-') && p !== 'list');
+                if (categorySegments.length > 0) {
+                    let lastPath = categorySegments[categorySegments.length - 1];
+                    data.tags.push("Локація/Категорія: " + lastPath);
+                }
+
+                // 3. Витягуємо ціну
+                let priceFrom = url.searchParams.get('search[filter_float_price:from]');
+                let priceTo = url.searchParams.get('search[filter_float_price:to]');
+
+                if (priceFrom && priceTo) data.price = `${priceFrom} - ${priceTo} грн`;
+                else if (priceFrom) data.price = `від ${priceFrom} грн`;
+                else if (priceTo) data.price = `до ${priceTo} грн`;
+
+            } catch (e) {
+                console.log("Невірний URL");
+            }
+            return data;
+        }
+
+        function autoExtractData() {
+            let url = $('olx_url').value.trim();
+            if (!url) {
+                $('preview-tags').innerHTML = '';
+                return;
+            }
+
+            let parsed = parseOlxUrl(url);
+            renderPreviewTags(parsed);
+
+            // Автоматично генеруємо назву, якщо вона пуста
+            if ($('query_name').value.trim() === '') {
+                let autoName = parsed.tags.join(' | ');
+                if (autoName) {
+                    $('query_name').value = autoName.length > 40 ? autoName.substring(0, 40) + "..." : autoName;
+                }
+            }
+        }
+
+        function renderPreviewTags(parsedData) {
+            let html = '';
+            if (parsedData.price) html += `<span class="tag">💵 ${parsedData.price}</span>`;
+            parsedData.tags.forEach(t => { html += `<span class="tag">${t}</span>`; });
+            $('preview-tags').innerHTML = html;
+        }
+
+        function saveData() {
+            let rawUrl = $('olx_url').value.trim();
+            let name = $('query_name').value.trim();
+
+            if (!rawUrl || !rawUrl.includes('olx.ua')) {
+                tg.showAlert("Будь ласка, вставте коректне посилання з olx.ua");
+                return;
+            }
+
+            // --- АВТОМАТИЧНЕ ДОДАВАННЯ СОРТУВАННЯ ЗА НАЙНОВІШИМИ ---
+            let finalUrl = rawUrl;
+            try {
+                let urlObj = new URL(rawUrl);
+                urlObj.searchParams.set('search[order]', 'created_at:desc');
+                finalUrl = decodeURIComponent(urlObj.toString());
+            } catch (e) {
+                console.log("Помилка форматування URL");
+            }
+            // --------------------------------------------------------
+
+            let parsedData = parseOlxUrl(finalUrl);
+            name = name || "Мій запит OLX";
+
+            let dataObj = { name, url: finalUrl, parsedData };
+            let toastMessage = "";
+
+            if (editingIndex > -1) {
+                savedQueries[editingIndex] = dataObj;
+                toastMessage = "Зміни успішно збережено!";
+            } else {
+                savedQueries.push(dataObj);
+                toastMessage = "Ваш запит успішно створено. Ви отримаєте сповіщення, щойно з'явиться нове оголошення.";
+            }
+
+            renderQueries();
+            closeForm();
+            showToast(toastMessage);
+        }
+
+        function renderQueries() {
+            let emptyState = $('empty-state');
+            let listContainer = $('queries-container');
+            let listHTML = $('queries-list');
+            listHTML.innerHTML = '';
+
+            if (savedQueries.length === 0) {
+                emptyState.style.display = 'flex';
+                listContainer.style.display = 'none';
+            } else {
+                emptyState.style.display = 'none';
+                listContainer.style.display = 'block';
+
+                savedQueries.forEach((item, index) => {
+                    let tagsHtml = '';
+                    
+                    if (item.parsedData && item.parsedData.price) {
+                        tagsHtml += `<span class="tag">💵 ${item.parsedData.price}</span>`;
+                    }
+                    if (item.parsedData && item.parsedData.tags) {
+                        item.parsedData.tags.forEach(t => { tagsHtml += `<span class="tag">${t}</span>`; });
+                    }
+
+                    listHTML.innerHTML += `
+                        <div class="query-card">
+                            <div class="query-card-header">
+                                <div style="flex-grow: 1;">
+                                    <div class="query-title">${item.name}</div>
+                                    <div class="query-url">${item.url}</div>
+                                </div>
+                                <div class="query-actions">
+                                    <svg class="action-icon" viewBox="0 0 24 24" onclick="openForm(${index})">
+                                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                                    </svg>
+                                    <svg class="action-icon" viewBox="0 0 24 24" onclick="deleteQuery(${index})">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="tags-container">${tagsHtml}</div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        function deleteQuery(index) {
+            if (confirm("Видалити цей моніторинг?")) {
+                savedQueries.splice(index, 1);
+                renderQueries();
+            }
+        }
+
+        // --- ОНОВЛЕНА ЛОГІКА СПОВІЩЕННЯ (ВИПРАВЛЕНО БАГ АНІМАЦІЇ) ---
+        let toastTimeout;
+
+        function showToast(message) {
+            const toast = $('toast');
+            const toastText = $('toast-msg');
+            const progress = document.querySelector('.toast-circle-progress');
+
+            toastText.innerText = message;
+
+            // 1. Повністю прибираємо клас та скидаємо властивість CSS анімації в 'none'
+            progress.classList.remove('animate-progress');
+            progress.style.animation = 'none';
+            
+            // 2. Тригеримо reflow браузера (змушуємо забути стару анімацію)
+            void progress.offsetWidth;
+
+            // 3. Повертаємо стилі назад та додаємо клас знову
+            progress.style.animation = '';
+            toast.classList.add('show');
+            progress.classList.add('animate-progress');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                closeToast();
+            }, 4000);
+        }
+
+        function closeToast() {
+            $('toast').classList.remove('show');
+            
+            // Чистимо клас анімації при закритті, щоб наступний запуск був з нуля
+            const progress = document.querySelector('.toast-circle-progress');
+            if (progress) {
+                progress.classList.remove('animate-progress');
+            }
+            clearTimeout(toastTimeout);
+        }
+    </script>
+</body>
+
+</html>
