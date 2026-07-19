@@ -403,8 +403,29 @@
         tg.expand();
         const $ = id => document.getElementById(id);
 
+        // 1. Виносимо userId на самий верх, щоб він був доступний усім функціям
+        let userId = tg.initDataUnsafe?.user?.id || 670326985; // Твій ID для тесту в браузері
+
         let savedQueries = [];
         let editingIndex = -1;
+
+        // 2. НОВА ФУНКЦІЯ: ЗАВАНТАЖЕННЯ ДАНИХ ПРИ СТАРТІ
+        function loadQueries() {
+            fetch(`http://127.0.0.1:8000/api/queries/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    savedQueries = data; // Записуємо дані з бази у наш масив
+                    renderQueries();     // Малюємо карточки на екрані
+                })
+                .catch(error => {
+                    console.error("Помилка завантаження даних:", error);
+                    // Якщо сервер вимкнений, покажемо порожній список
+                    renderQueries();
+                });
+        }
+
+        // 3. Запускаємо завантаження одразу при відкритті додатка
+        loadQueries();
 
         function showView(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
