@@ -501,7 +501,6 @@
                 return;
             }
 
-            // --- АВТОМАТИЧНЕ ДОДАВАННЯ СОРТУВАННЯ ЗА НАЙНОВІШИМИ ---
             let finalUrl = rawUrl;
             try {
                 let urlObj = new URL(rawUrl);
@@ -510,25 +509,48 @@
             } catch (e) {
                 console.log("Помилка форматування URL");
             }
-            // --------------------------------------------------------
 
             let parsedData = parseOlxUrl(finalUrl);
             name = name || "Мій запит OLX";
 
-            let dataObj = { name, url: finalUrl, parsedData };
-            let toastMessage = "";
+            // Отримуємо реальний Telegram ID користувача, який відкрив додаток
+            let userId = tg.initDataUnsafe?.user?.id || 123456789; // 123456789 - це fallback для тестування в браузері
 
-            if (editingIndex > -1) {
-                savedQueries[editingIndex] = dataObj;
-                toastMessage = "Зміни успішно збережено!";
-            } else {
-                savedQueries.push(dataObj);
-                toastMessage = "Ваш запит успішно створено. Ви отримаєте сповіщення, щойно з'явиться нове оголошення.";
-            }
+            let dataObj = { 
+                name: name, 
+                url: finalUrl, 
+                parsedData: parsedData,
+                user_id: userId 
+            };
 
-            renderQueries();
-            closeForm();
-            showToast(toastMessage);
+            // ВІДПРАВЛЯЄМО ДАНІ НА БЕКЕНД
+            // Зверни увагу: URL треба буде замінити на твій, коли виставиш сервер в інтернет
+            fetch('http://127.0.0.1:8000/api/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dataObj)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Відповідь сервера:", data);
+                
+                // Якщо все добре, малюємо картку і показуємо сповіщення
+                if (editingIndex > -1) {
+                    savedQueries[editingIndex] = dataObj;
+                } else {
+                    savedQueries.push(dataObj);
+                }
+
+                renderQueries();
+                closeForm();
+                showToast("Ваш запит успішно відправлено на сервер!");
+            })
+            .catch(error => {
+                console.error('Помилка відправки:', error);
+                tg.showAlert("Помилка зв'язку з сервером. Спробуйте пізніше.");
+            });
         }
 
         function renderQueries() {
