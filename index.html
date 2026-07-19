@@ -403,23 +403,29 @@
         tg.expand();
         const $ = id => document.getElementById(id);
 
-        // 1. Виносимо userId на самий верх, щоб він був доступний усім функціям
-        let userId = tg.initDataUnsafe?.user?.id || 670326985; // Твій ID для тесту в браузері
+        let userId = tg.initDataUnsafe?.user?.id || 670326985;
+        
+        // ВСТАВЛЯЄМО ТВОЄ ПОСИЛАННЯ NGROK
+        const API_BASE_URL = "https://monitor-blog-rimmed.ngrok-free.dev";
 
         let savedQueries = [];
         let editingIndex = -1;
 
-        // 2. НОВА ФУНКЦІЯ: ЗАВАНТАЖЕННЯ ДАНИХ ПРИ СТАРТІ
+        // ОНОВЛЕНА ФУНКЦІЯ ЗАВАНТАЖЕННЯ (з обходом захисту ngrok)
         function loadQueries() {
-            fetch(`http://127.0.0.1:8000/api/queries/${userId}`)
+            fetch(`${API_BASE_URL}/api/queries/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'ngrok-skip-browser-warning': 'true'
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
-                    savedQueries = data; // Записуємо дані з бази у наш масив
-                    renderQueries();     // Малюємо карточки на екрані
+                    savedQueries = data;
+                    renderQueries();
                 })
                 .catch(error => {
                     console.error("Помилка завантаження даних:", error);
-                    // Якщо сервер вимкнений, покажемо порожній список
                     renderQueries();
                 });
         }
@@ -546,10 +552,12 @@
 
             // ВІДПРАВЛЯЄМО ДАНІ НА БЕКЕНД
             // Зверни увагу: URL треба буде замінити на твій, коли виставиш сервер в інтернет
-            fetch('http://127.0.0.1:8000/api/save', {
+            // ОНОВЛЕНИЙ ЗАПИТ ЗБЕРЕЖЕННЯ
+            fetch(`${API_BASE_URL}/api/save`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
                 },
                 body: JSON.stringify(dataObj)
             })
@@ -557,7 +565,6 @@
             .then(data => {
                 console.log("Відповідь сервера:", data);
                 
-                // Якщо все добре, малюємо картку і показуємо сповіщення
                 if (editingIndex > -1) {
                     savedQueries[editingIndex] = dataObj;
                 } else {
