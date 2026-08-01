@@ -540,9 +540,6 @@
             let parsedData = parseOlxUrl(finalUrl);
             name = name || "Мій запит OLX";
 
-            // Отримуємо реальний Telegram ID користувача, який відкрив додаток
-            let userId = tg.initDataUnsafe?.user?.id || 123456789; // 123456789 - це fallback для тестування в браузері
-
             let dataObj = { 
                 name: name, 
                 url: finalUrl, 
@@ -550,11 +547,15 @@
                 user_id: userId 
             };
 
-            // ВІДПРАВЛЯЄМО ДАНІ НА БЕКЕНД
-            // Зверни увагу: URL треба буде замінити на твій, коли виставиш сервер в інтернет
-            // ОНОВЛЕНИЙ ЗАПИТ ЗБЕРЕЖЕННЯ
-            fetch(`${API_BASE_URL}/api/save`, {
-                method: 'POST',
+            let isEditing = editingIndex > -1;
+            // Якщо редагуємо — шлемо PUT на конкретний ID, якщо нове — POST на /api/save
+            let fetchUrl = isEditing ? 
+                `${API_BASE_URL}/api/queries/${savedQueries[editingIndex].id}` : 
+                `${API_BASE_URL}/api/save`;
+            let fetchMethod = isEditing ? 'PUT' : 'POST';
+
+            fetch(fetchUrl, {
+                method: fetchMethod,
                 headers: {
                     'Content-Type': 'application/json',
                     'ngrok-skip-browser-warning': 'true'
@@ -563,21 +564,24 @@
             })
             .then(response => response.json())
             .then(data => {
-                console.log("Відповідь сервера:", data);
-                
-                if (editingIndex > -1) {
+                if (isEditing) {
+                    // Якщо це було редагування, зберігаємо старий ID
+                    dataObj.id = savedQueries[editingIndex].id;
                     savedQueries[editingIndex] = dataObj;
+                    showToast("Зміни успішно збережено!");
                 } else {
+                    // Якщо нове — беремо ID, який щойно повернула база даних
+                    dataObj.id = data.id;
                     savedQueries.push(dataObj);
+                    showToast("Ваш запит успішно створено!");
                 }
 
                 renderQueries();
                 closeForm();
-                showToast("Ваш запит успішно відправлено на сервер!");
             })
             .catch(error => {
                 console.error('Помилка відправки:', error);
-                tg.showAlert("Помилка зв'язку з сервером. Спробуйте пізніше.");
+                tg.showAlert("Помилка зв'язку з сервером.");
             });
         }
 
@@ -630,8 +634,22 @@
 
         function deleteQuery(index) {
             if (confirm("Видалити цей моніторинг?")) {
-                savedQueries.splice(index, 1);
-                renderQueries();
+                let queryId = savedQueries[index].id;
+
+                // Відправляємо запит на видалення в базу даних
+                fetch(`${API_BASE_URL}/api/queries/${queryId}`, {
+                    method: 'DELETE',
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                })
+                .then(() => {
+                    // Після успішного видалення з сервера, видаляємо з екрана
+                    savedQueries.splice(index, 1);
+                    renderQueries();
+                })
+                .catch(error => {
+                    console.error("Помилка видалення:", error);
+                    tg.showAlert("Не вдалося видалити. Спробуйте пізніше.");
+                });
             }
         }
 
