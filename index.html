@@ -17,7 +17,7 @@
         .query-card { background-color: var(--bg-panel); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border); }
         .query-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .query-title { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
-        .query-url { font-size: 12px; color: var(--text-dim); word-break: break-all; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .query-url { font-size: 12px; color: var(--text-dim); word-break: break-all; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .query-actions { display: flex; gap: 15px; }
         .action-icon { width: 20px; height: 20px; fill: none; stroke: var(--text-dim); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; cursor: pointer; transition: 0.2s; }
         .action-icon:hover { stroke: var(--accent); }
@@ -123,7 +123,7 @@
         function openForm(index = -1) {
             editingIndex = index;
             $('preview-tags').innerHTML = '';
-            
+
             if (index === -1) {
                 $('form-title').innerText = "Новий моніторинг";
                 $('olx_url').value = '';
@@ -144,10 +144,10 @@
             try {
                 let url = new URL(urlString);
                 let paths = url.pathname.split('/').filter(p => p && p !== 'uk' && p !== 'list');
-                
+
                 let keyword = paths.find(p => p.startsWith('q-'));
                 if (keyword) data.tags.push("Пошук: " + decodeURIComponent(keyword.replace('q-', '').replace(/-/g, ' ')));
-                
+
                 let category = paths.filter(p => !p.startsWith('q-')).pop();
                 if (category) data.tags.push("Локація/Категорія: " + category);
 
@@ -173,7 +173,7 @@
             }
         }
 
-        const getTagsHtml = data => (data?.price ? `<span class="tag">💵 ${data.price}</span>` : '') + 
+        const getTagsHtml = data => (data?.price ? `<span class="tag">💵 ${data.price}</span>` : '') +
                                     (data?.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
 
         // Робота з сервером
@@ -192,13 +192,13 @@
             let parsedData = parseOlxUrl(url);
             let dataObj = { name, url, parsedData, user_id: userId };
             let isEditing = editingIndex > -1;
-            
+
             let fetchUrl = isEditing ? `${API_BASE_URL}/api/queries/${savedQueries[editingIndex].id}` : `${API_BASE_URL}/api/save`;
-            
+
             try {
                 let res = await fetch(fetchUrl, { method: isEditing ? 'PUT' : 'POST', headers: HEADERS, body: JSON.stringify(dataObj) });
                 let responseData = await res.json();
-                
+
                 if (isEditing) {
                     dataObj.id = savedQueries[editingIndex].id;
                     savedQueries[editingIndex] = dataObj;
@@ -215,8 +215,13 @@
             }
         }
 
-        async function deleteQuery(index) {
-            if (confirm("Видалити цей моніторинг?")) {
+        // ФІКС: замінено нативний confirm() на tg.showConfirm().
+        // window.confirm()/alert() усередині Telegram WebView відомі тим, що
+        // після закриття діалогу ламають фокус/клавіатуру для полів вводу —
+        // саме через це textarea переставала реагувати на дотик.
+        function deleteQuery(index) {
+            tg.showConfirm("Видалити цей моніторинг?", async (confirmed) => {
+                if (!confirmed) return;
                 try {
                     await fetch(`${API_BASE_URL}/api/queries/${savedQueries[index].id}`, { method: 'DELETE', headers: HEADERS });
                     savedQueries.splice(index, 1);
@@ -224,14 +229,14 @@
                 } catch (error) {
                     tg.showAlert("Не вдалося видалити.");
                 }
-            }
+            });
         }
 
         // Відображення списку
         function renderQueries() {
             $('empty-state').style.display = savedQueries.length ? 'none' : 'flex';
             $('queries-container').style.display = savedQueries.length ? 'block' : 'none';
-            
+
             $('queries-list').innerHTML = savedQueries.map((item, index) => `
                 <div class="query-card">
                     <div class="query-card-header">
