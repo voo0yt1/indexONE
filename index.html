@@ -14,15 +14,18 @@
         .empty-state h2 { font-size: 20px; margin-bottom: 10px; } .empty-state p { color: var(--text-dim); font-size: 14px; }
         .queries-container { display: none; padding: 15px 20px; }
         .queries-header { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
-        .query-card { background-color: var(--bg-panel); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border); }
+        .query-card { background-color: var(--bg-panel); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border); transition: opacity 0.2s; }
+        .query-card.paused { opacity: 0.55; }
         .query-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .query-title { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
         .query-url { font-size: 12px; color: var(--text-dim); word-break: break-all; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .query-actions { display: flex; gap: 15px; }
         .action-icon { width: 20px; height: 20px; fill: none; stroke: var(--text-dim); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; cursor: pointer; transition: 0.2s; }
         .action-icon:hover { stroke: var(--accent); }
+        .action-icon.paused-state { stroke: var(--accent); }
         .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .tag { background-color: #2a3546; color: #d1d8e0; padding: 4px 10px; border-radius: 6px; font-size: 12px; }
+        .tag.paused-tag { background-color: rgba(252, 213, 53, 0.15); color: var(--accent); }
         .form-header { display: flex; align-items: center; padding: 15px 20px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
         .back-btn { background: none; border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; padding: 0; margin-right: 15px; }
         .form-header h2 { margin: 0; font-size: 18px; font-weight: normal; }
@@ -133,7 +136,7 @@
                 let item = savedQueries[index];
                 $('olx_url').value = item.url;
                 $('query_name').value = item.name;
-                $('preview-tags').innerHTML = getTagsHtml(item.parsedData);
+                $('preview-tags').innerHTML = getTagsHtml(item.parsedData, item.is_paused);
             }
             showView('view-form');
         }
@@ -165,7 +168,7 @@
             if (!url) return $('preview-tags').innerHTML = '';
 
             let parsed = parseOlxUrl(url);
-            $('preview-tags').innerHTML = getTagsHtml(parsed);
+            $('preview-tags').innerHTML = getTagsHtml(parsed, false);
 
             if (!$('query_name').value.trim() && parsed.tags.length > 0) {
                 let name = parsed.tags.join(' | ');
@@ -173,8 +176,10 @@
             }
         }
 
-        const getTagsHtml = data => (data?.price ? `<span class="tag">💵 ${data.price}</span>` : '') +
-                                    (data?.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+        const getTagsHtml = (data, isPaused) =>
+            (isPaused ? `<span class="tag paused-tag">⏸ На паузі</span>` : '') +
+            (data?.price ? `<span class="tag">💵 ${data.price}</span>` : '') +
+            (data?.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
 
         // Робота з сервером
         async function saveData() {
@@ -190,8 +195,11 @@
             } catch(e) {}
 
             let parsedData = parseOlxUrl(url);
-            let dataObj = { name, url, parsedData, user_id: userId };
             let isEditing = editingIndex > -1;
+            let dataObj = {
+                name, url, parsedData, user_id: userId,
+                is_paused: isEditing ? savedQueries[editingIndex].is_paused : false,
+            };
 
             let fetchUrl = isEditing ? `${API_BASE_URL}/api/queries/${savedQueries[editingIndex].id}` : `${API_BASE_URL}/api/save`;
 
@@ -215,10 +223,24 @@
             }
         }
 
-        // ФІКС: замінено нативний confirm() на tg.showConfirm().
-        // window.confirm()/alert() усередині Telegram WebView відомі тим, що
-        // після закриття діалогу ламають фокус/клавіатуру для полів вводу —
-        // саме через це textarea переставала реагувати на дотик.
+        // Пауза / відновлення запиту
+        async function togglePause(index) {
+            let item = savedQueries[index];
+            let newState = !item.is_paused;
+            try {
+                await fetch(`${API_BASE_URL}/api/queries/${item.id}/pause`, {
+                    method: 'PATCH',
+                    headers: HEADERS,
+                    body: JSON.stringify({ is_paused: newState }),
+                });
+                item.is_paused = newState;
+                renderQueries();
+            } catch (error) {
+                tg.showAlert("Не вдалося змінити стан запиту.");
+            }
+        }
+
+        // Видалення (через tg.showConfirm — не ламає фокус/клавіатуру, на відміну від нативного confirm())
         function deleteQuery(index) {
             tg.showConfirm("Видалити цей моніторинг?", async (confirmed) => {
                 if (!confirmed) return;
@@ -237,21 +259,27 @@
             $('empty-state').style.display = savedQueries.length ? 'none' : 'flex';
             $('queries-container').style.display = savedQueries.length ? 'block' : 'none';
 
-            $('queries-list').innerHTML = savedQueries.map((item, index) => `
-                <div class="query-card">
+            $('queries-list').innerHTML = savedQueries.map((item, index) => {
+                const pauseIcon = item.is_paused
+                    ? '<polygon points="5 3 19 12 5 21 5 3"></polygon>'
+                    : '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>';
+                return `
+                <div class="query-card ${item.is_paused ? 'paused' : ''}">
                     <div class="query-card-header">
                         <div style="flex-grow: 1;">
                             <div class="query-title">${item.name}</div>
                             <div class="query-url">${item.url}</div>
                         </div>
                         <div class="query-actions">
+                            <svg class="action-icon ${item.is_paused ? 'paused-state' : ''}" viewBox="0 0 24 24" onclick="togglePause(${index})">${pauseIcon}</svg>
                             <svg class="action-icon" viewBox="0 0 24 24" onclick="openForm(${index})"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                             <svg class="action-icon" viewBox="0 0 24 24" onclick="deleteQuery(${index})"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                         </div>
                     </div>
-                    <div class="tags-container">${getTagsHtml(item.parsedData)}</div>
+                    <div class="tags-container">${getTagsHtml(item.parsedData, item.is_paused)}</div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         // Анімація Toast
