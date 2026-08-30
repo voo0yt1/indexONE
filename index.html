@@ -207,6 +207,11 @@
                 let res = await fetch(fetchUrl, { method: isEditing ? 'PUT' : 'POST', headers: HEADERS, body: JSON.stringify(dataObj) });
                 let responseData = await res.json();
 
+                if (!res.ok) {
+                    tg.showAlert(responseData.detail || "Не вдалося зберегти запит.");
+                    return;
+                }
+
                 if (isEditing) {
                     dataObj.id = savedQueries[editingIndex].id;
                     savedQueries[editingIndex] = dataObj;
@@ -228,11 +233,16 @@
             let item = savedQueries[index];
             let newState = !item.is_paused;
             try {
-                await fetch(`${API_BASE_URL}/api/queries/${item.id}/pause`, {
+                let res = await fetch(`${API_BASE_URL}/api/queries/${item.id}/pause`, {
                     method: 'PATCH',
                     headers: HEADERS,
                     body: JSON.stringify({ is_paused: newState }),
                 });
+                let responseData = await res.json();
+                if (!res.ok) {
+                    tg.showAlert(responseData.detail || "Не вдалося змінити стан запиту.");
+                    return;
+                }
                 item.is_paused = newState;
                 renderQueries();
             } catch (error) {
